@@ -29,15 +29,15 @@ public record HudSettings(
     public static HudSettings from(FileConfiguration cfg) {
         HudManager.Corner corner = HudManager.Corner.fromString(cfg.getString("corner", "TOP_LEFT"));
 
-        // Clock: the clock's vertical centre sits 3px above the line, matching the original 16px layout
+        // Clock: the clock's vertical center sits 3px above the line, matching the original 16px layout
         // (ascent 11 at size 16). Minecraft rejects ascent > height, which sets the upper offset limit.
-        int clockSize = clamp(cfg.getInt("clock-size", 12), MIN_CLOCK_SIZE, MAX_CLOCK_SIZE);
+        int clockSize = Math.clamp(cfg.getInt("clock-size", 12), MIN_CLOCK_SIZE, MAX_CLOCK_SIZE);
         int baseAscent = (int) Math.round(3 + clockSize / 2.0);
-        int verticalOffset = clamp(cfg.getInt("vertical-offset", -5), MIN_VERTICAL_OFFSET, clockSize - baseAscent);
+        int verticalOffset = Math.clamp(cfg.getInt("vertical-offset", -5), MIN_VERTICAL_OFFSET, clockSize - baseAscent);
         int clockAscent = baseAscent + verticalOffset;
 
-        // Text: same maths as before, generalised from the fixed 16px clock to clock-size.
-        double fontScale = Math.max(0.50, Math.min(2.50, cfg.getDouble("font-scale", 1.00)));
+        // Text: same maths as before, generalized from the fixed 16px clock to clock-size.
+        double fontScale = Math.clamp(cfg.getDouble("font-scale", 1.00), 0.50, 2.50);
         int textHeight = (int) Math.round(8.0 * fontScale);
         int textAscent = (int) Math.round((clockAscent - clockSize / 2.0) + (7.0 / 16.0) * textHeight);
         textAscent = Math.min(textHeight, textAscent);
@@ -57,13 +57,9 @@ public record HudSettings(
                 cfg.getString("display.day-label", "&eDay:    "),
                 cfg.getString("display.day-number", "&f{day}"),
                 cfg.getString("resource-pack.host", ""),
-                clamp(cfg.getInt("resource-pack.port", 8164), 1, 65535),
+                Math.clamp(cfg.getInt("resource-pack.port", 8164), 1, 65535),
                 cfg.getString("resource-pack.prompt", "&eClockHUD needs a small resource pack to show the clock.")
         );
-    }
-
-    private static int clamp(int value, int min, int max) {
-        return Math.max(min, Math.min(max, value));
     }
 
     /** Encodes a pixel advance using the space glyphs defined in the clockhud:hud font. */

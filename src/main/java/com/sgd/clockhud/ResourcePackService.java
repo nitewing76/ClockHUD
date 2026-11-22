@@ -50,16 +50,15 @@ public final class ResourcePackService {
         this.plugin = plugin;
     }
 
-    /** Rebuilds the pack from settings and (re)starts the HTTP server if needed. Returns true if the pack content changed. */
-    public boolean apply(HudSettings settings) {
-        String previousHash = this.packHash;
+    /** Rebuilds the pack from settings and (re)starts the HTTP server if needed. Players only re-download when the hash changes. */
+    public void apply(HudSettings settings) {
         try {
             byte[] bytes = buildPack(settings);
             this.packBytes = bytes;
             this.packHash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-1").digest(bytes));
         } catch (IOException | NoSuchAlgorithmException ex) {
             plugin.getLogger().log(Level.SEVERE, "Failed to build the ClockHUD resource pack", ex);
-            return false;
+            return;
         }
 
         if (this.server == null || this.serverPort != settings.packPort()) {
@@ -86,19 +85,20 @@ public final class ResourcePackService {
             } catch (IOException ex) {
                 plugin.getLogger().log(Level.SEVERE, "Could not start the ClockHUD resource pack server on port "
                         + settings.packPort() + ". Players will not receive the pack.", ex);
-                return false;
+                return;
             }
         }
 
         String host = settings.packHost().isBlank() ? Bukkit.getIp() : settings.packHost().trim();
-        if (host == null || host.isBlank()) {
+        if (host.isBlank()) {
             host = "127.0.0.1";
             plugin.getLogger().warning("resource-pack.host is blank and server-ip is not set; using 127.0.0.1. "
                     + "Remote players will not be able to download the ClockHUD pack until resource-pack.host is set.");
         }
+        // Plain HTTP is expected: the client verifies the download against the SHA-1 hash sent with the pack request.
+        //noinspection HttpUrlsUsage
         this.packUri = URI.create("http://" + host + ":" + this.serverPort + PACK_PATH + "?v=" + this.packHash);
         plugin.getLogger().info("ClockHUD resource pack ready at " + this.packUri);
-        return !this.packHash.equals(previousHash);
     }
 
     /** Sends the pack unless this player already received the current version. */
@@ -149,9 +149,10 @@ public final class ResourcePackService {
                 putResource(zip, sprites + name, "pack/" + name);
             }
             put(zip, "assets/clockhud/font/hud.json", buildClockFont(settings).getBytes(StandardCharsets.UTF_8));
-            String text = readResource("pack/text_template.json")
-                    .replace("%ASCENT%", Integer.toString(settings.textAscent()))
-                    .replace("%HEIGHT%", Integer.toString(settings.textHeight()));
+            // The template keeps its placeholders quoted so it stays valid JSON; the quotes are replaced too.
+            String text = new String(readResource("pack/text_template.json"), StandardCharsets.UTF_8)
+                    .replace("\"%ASCENT%\"", Integer.toString(settings.textAscent()))
+                    .replace("\"%HEIGHT%\"", Integer.toString(settings.textHeight()));
             put(zip, "assets/clockhud/font/text.json", text.getBytes(StandardCharsets.UTF_8));
         }
         return buffer.toByteArray();
@@ -170,20 +171,15 @@ public final class ResourcePackService {
     }
 
     private void putResource(ZipOutputStream zip, String entryName, String resourcePath) throws IOException {
-        try (InputStream in = plugin.getResource(resourcePath)) {
-            if (in == null) {
-                throw new IOException("Missing bundled resource " + resourcePath);
-            }
-            put(zip, entryName, in.readAllBytes());
-        }
+        put(zip, entryName, readResource(resourcePath));
     }
 
-    private String readResource(String resourcePath) throws IOException {
+    private byte[] readResource(String resourcePath) throws IOException {
         try (InputStream in = plugin.getResource(resourcePath)) {
             if (in == null) {
                 throw new IOException("Missing bundled resource " + resourcePath);
             }
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            return in.readAllBytes();
         }
     }
 

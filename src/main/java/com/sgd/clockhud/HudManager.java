@@ -1,5 +1,6 @@
 package com.sgd.clockhud;
 
+import io.papermc.paper.block.bed.BedEnterAction;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
@@ -133,19 +134,7 @@ public final class HudManager implements Listener {
         if (!isActive()) {
             return;
         }
-        long delay;
-        if (!this.sleepingPlayers.isEmpty()) {
-            delay = SLEEP_POLL_TICKS;
-        } else if (!this.settings.corner().isTop()) {
-            delay = ACTION_BAR_RESEND_TICKS;
-        } else {
-            // Wake exactly when the clock frame or the day number next changes.
-            long dayTime = Math.floorMod(fullTime, TICKS_PER_DAY);
-            long toNextFrame = TICKS_PER_FRAME - Math.floorMod(dayTime - FIRST_FRAME_BOUNDARY, TICKS_PER_FRAME);
-            long toMidnight = TICKS_PER_DAY - dayTime;
-            delay = Math.max(1L, Math.min(toNextFrame, toMidnight));
-        }
-
+        long delay = computeDelay(fullTime);
         this.checkTask = Bukkit.getScheduler().runTaskLater(plugin, () -> {
             this.checkTask = null;
             if (!isActive()) {
@@ -160,9 +149,25 @@ public final class HudManager implements Listener {
         }, delay);
     }
 
+    /** Ticks until the HUD next needs attention. */
+    private long computeDelay(long fullTime) {
+        if (!this.sleepingPlayers.isEmpty()) {
+            return SLEEP_POLL_TICKS;
+        }
+        if (!this.settings.corner().isTop()) {
+            return ACTION_BAR_RESEND_TICKS;
+        }
+        // Wake exactly when the clock frame or the day number next changes (both values are always >= 1).
+        long dayTime = Math.floorMod(fullTime, TICKS_PER_DAY);
+        long toNextFrame = TICKS_PER_FRAME - Math.floorMod(dayTime - FIRST_FRAME_BOUNDARY, TICKS_PER_FRAME);
+        long toMidnight = TICKS_PER_DAY - dayTime;
+        return Math.min(toNextFrame, toMidnight);
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerBedEnter(PlayerBedEnterEvent event) {
-        if (!plugin.isPluginEnabled() || event.getBedEnterResult() != PlayerBedEnterEvent.BedEnterResult.OK) {
+        BedEnterAction action = event.enterAction();
+        if (!plugin.isPluginEnabled() || action.problem() != null || !action.canSleep().success()) {
             return;
         }
         this.sleepingPlayers.add(event.getPlayer().getUniqueId());
@@ -171,16 +176,17 @@ public final class HudManager implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTimeSkip(TimeSkipEvent event) {
-        if (!isActive()) {
+        if (!isActive() || !event.getWorld().equals(getSourceWorld())) {
             return;
         }
-        World sourceWorld = getSourceWorld();
-        if (sourceWorld == null || !event.getWorld().equals(sourceWorld)) {
-            return;
-        }
-        long postSkipFullTime = event.getWorld().getFullTime() + event.getSkipAmount();
-        refreshAllPlayersWithTime(postSkipFullTime, true);
-        scheduleNextCheck(postSkipFullTime);
+        // The new time is applied right after this event; read it on the next tick rather than
+        // relying on the experimental getSkipAmount().
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (isActive()) {
+                refreshAllPlayers(true);
+                scheduleNextCheck();
+            }
+        });
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
