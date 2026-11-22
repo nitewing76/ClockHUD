@@ -1,0 +1,15 @@
+name: ClockHUD
+version: '${project.version}'
+main: com.sgd.clockhud.ClockHUDPlugin
+api-version: '26.3'
+author: Sgt Grumpy Dad
+description: Displays a real-time rotating clock icon and Minecraft day counter in a configurable screen corner.
+commands:
+  clockhud:
+    description: Manage the ClockHUD plugin
+    usage: /clockhud <toggle|reload>
+    permission: clockhud.admin
+permissions:
+  clockhud.admin:
+    description: Allows toggling and reloading ClockHUD
+    default: op

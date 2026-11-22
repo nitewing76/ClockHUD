@@ -1,0 +1,45 @@
+enabled: true
+
+# Screen corner where the HUD is displayed:
+# Valid values: TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT
+corner: TOP_LEFT
+
+# Horizontal pixel offset used to align the HUD into the left or right corner.
+# Increase to push further toward the screen edge; decrease if clipped on smaller windows.
+horizontal-offset: 890
+
+# Vertical pixel offset for the HUD (positive moves up, negative moves down; range: -60 to 5)
+vertical-offset: -5
+
+# Horizontal pixel spacing between the clock icon and the text
+clock-text-offset: 4
+
+# Text font size multiplier (supports 2 decimal places; 1.00 = vanilla size, 1.50 = 75% of clock height)
+font-scale: 1.00
+
+# Clock icon size in pixels (8-32; 16 = vanilla item size). Larger sizes allow a higher vertical-offset
+# (max vertical-offset = clock-size - round(3 + clock-size / 2), e.g. 3 at size 12, 5 at size 16)
+clock-size: 12
+
+# Source world for time and day count (keeps Nether and End synced to Overworld)
+world: world
+
+display:
+  day-label: "&eDay:    "
+  day-number: "&f{day}"
+
+messages:
+  prefix: "&8[&6ClockHUD&8] "
+  no-permission: "&cYou do not have permission to use this command."
+  reloaded: "&aClockHUD configuration reloaded."
+  usage: "&eUsage: /clockhud <toggle|reload>"
+
+# ClockHUD builds a tiny resource pack from the settings above and sends it to players on join.
+# The pack is served by a small built-in web server, so the port below must be reachable by players.
+resource-pack:
+  # Address players use to download the pack (your server's public IP or domain).
+  # Leave blank to use server-ip from server.properties.
+  host: ""
+  port: 8164
+  # Text shown on the client's pack download prompt
+  prompt: "&eClockHUD needs a small resource pack to show the clock."
